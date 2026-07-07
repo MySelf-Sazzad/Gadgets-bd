@@ -485,7 +485,9 @@ input, textarea, select { font-family: inherit; font-size: inherit; }
   letter-spacing: -0.5px; margin-bottom: 8px;
   padding: 12px; border-radius: 10px; background: var(--bg-alt);
   display: flex; align-items: center; justify-content: center;
+  min-height: 64px;
 }
+.brand-logo img { max-height: 40px; max-width: 80px; object-fit: contain; }
 .brand-name { font-weight: 700; font-size: 0.9rem; }
 
 /* ===== REVIEWS ===== */
