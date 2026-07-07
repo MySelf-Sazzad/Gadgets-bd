@@ -117,6 +117,24 @@ async function loadData() {
         });
         await batch2.commit();
         console.log('Brands seeded:', D.BRANDS.length);
+      } else {
+        // Migration: update brands that have empty logo fields
+        var allBrands = await db.collection('brands').get();
+        var logoBatch = db.batch();
+        var needsUpdate = false;
+        var logoMap = {};
+        D.BRANDS.forEach(function(br) { logoMap[br.id] = br.logo; });
+        allBrands.docs.forEach(function(doc) {
+          var data = doc.data();
+          if ((!data.logo || data.logo === '') && logoMap[doc.id]) {
+            logoBatch.update(db.collection('brands').doc(doc.id), { logo: logoMap[doc.id] });
+            needsUpdate = true;
+          }
+        });
+        if (needsUpdate) {
+          await logoBatch.commit();
+          console.log('Brand logos updated (migration)');
+        }
       }
 
       // Check if banners exist; if not, seed defaults
@@ -428,6 +446,12 @@ function productCard(p) {
 }
 
 function buyNow(productId) {
+  if (!State.user) {
+    toast('Please login to continue checkout', 'warning');
+    window._pendingRedirect = 'checkout';
+    openAuthModal();
+    return;
+  }
   addToCart(productId);
   navigateTo('checkout');
 }
@@ -959,7 +983,7 @@ function changeQty(delta) {
   if (val > parseInt(input.max)) val = parseInt(input.max);
   input.value = val;
 }
-function buyNowQty(id) { addToCart(id, parseInt($('#detailQty').value)); navigateTo('checkout'); }
+function buyNowQty(id) { if (!State.user) { toast('Please login to continue checkout', 'warning'); window._pendingRedirect = 'checkout'; openAuthModal(); return; } addToCart(id, parseInt($('#detailQty').value)); navigateTo('checkout'); }
 function switchTab(tab, el) {
   $$('.tab-header').forEach(t => t.classList.remove('active'));
   $$('.tab-content').forEach(t => t.classList.remove('active'));
@@ -1089,7 +1113,7 @@ function renderCart() {
             <div class="summary-row"><span>Shipping</span><span>${shipping === 0 ? 'FREE' : fmtPrice(shipping)}</span></div>
             <div class="summary-row" style="font-size:0.8rem; color:var(--text-light)"><span>Estimated delivery</span><span>2-3 days</span></div>
             <div class="summary-row total"><span>Total</span><span>${fmtPrice(total)}</span></div>
-            <button class="btn-checkout" onclick="navigateTo('checkout')">Proceed to Checkout <i class="fas fa-arrow-right"></i></button>
+            <button class="btn-checkout" onclick="if(!State.user){toast('Please login to continue','warning');window._pendingRedirect='checkout';openAuthModal();}else{navigateTo('checkout')}">Proceed to Checkout <i class="fas fa-arrow-right"></i></button>
             <button class="btn-cart" style="width:100%; margin-top:12px; padding:14px" onclick="navigateTo('products')">Continue Shopping</button>
           </div>
         </div>
@@ -1113,6 +1137,14 @@ function applyCoupon() {
 
 // ---------- CHECKOUT PAGE ----------
 function renderCheckout() {
+  // Require login before checkout
+  if (!State.user) {
+    toast('Please login to place an order', 'warning');
+    window._pendingRedirect = 'checkout';
+    openAuthModal();
+    return;
+  }
+
   const items = State.cart.map(item => {
     const p = State.products.find(pr => pr.id === item.id);
     return p ? { ...p, qty: item.qty } : null;
@@ -1252,11 +1284,17 @@ async function placeOrder(total) {
     userId: State.user ? State.user.uid : 'guest',
   };
 
-  // Save to Firebase
+  // Save to Firebase — onSnapshot listener will update State.orders automatically
   if (firebaseInitialized && db) {
-    try { await db.collection('orders').doc(order.id).set(order); } catch (e) { console.warn(e); }
+    try {
+      await db.collection('orders').doc(order.id).set(order);
+      // Do NOT push to State.orders here — the onSnapshot listener handles that.
+      // This prevents duplicate orders in the admin panel.
+    } catch (e) { console.warn(e); }
+  } else {
+    // Local mode (no Firebase) — push directly since there's no listener
+    State.orders.push(order);
   }
-  State.orders.push(order);
   State.cart = [];
   State.appliedCoupon = null;
   saveState();
@@ -1651,7 +1689,14 @@ async function handleLogin() {
   }
   closeAuthModal();
   toast('Welcome back! 🎉', 'success');
-  navigateTo('dashboard');
+  // If user was trying to checkout, redirect there after login
+  if (window._pendingRedirect) {
+    var dest = window._pendingRedirect;
+    window._pendingRedirect = null;
+    navigateTo(dest);
+  } else {
+    navigateTo('dashboard');
+  }
 }
 
 async function handleRegister() {
@@ -1682,7 +1727,14 @@ async function handleRegister() {
     toast('Account created successfully! 🎉', 'success');
   }
   closeAuthModal();
-  navigateTo('dashboard');
+  // If user was trying to checkout, redirect there after register
+  if (window._pendingRedirect) {
+    var dest = window._pendingRedirect;
+    window._pendingRedirect = null;
+    navigateTo(dest);
+  } else {
+    navigateTo('dashboard');
+  }
 }
 
 async function handleGoogleLogin() {
@@ -1695,7 +1747,14 @@ async function handleGoogleLogin() {
       setUser(profile);
       closeAuthModal();
       toast('Signed in with Google! 🎉', 'success');
-      navigateTo('dashboard');
+      // If user was trying to checkout, redirect there after login
+      if (window._pendingRedirect) {
+        var dest = window._pendingRedirect;
+        window._pendingRedirect = null;
+        navigateTo(dest);
+      } else {
+        navigateTo('dashboard');
+      }
     } catch (e) { toast(e.message || 'Google sign-in failed', 'error'); }
   } else {
     // Local demo mode
