@@ -2628,13 +2628,101 @@ function adminOrdersView(c) {
       </div>
       <div class="admin-table-wrapper">
         <table class="admin-table">
-          <tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>Update Status</th></tr>
+          <tr><th>Order ID</th><th>Customer</th><th>Items</th><th>Total</th><th>Payment</th><th>Status</th><th>Update Status</th><th style="text-align:right">Actions</th></tr>
           ${State.orders.slice().reverse().map(function(o) {
-            return '<tr><td><strong>#' + o.id + '</strong></td><td>' + (o.customer ? o.customer.name : 'Guest') + '<br><span style="font-size:0.75rem;color:var(--text-light)">' + (o.customer ? (o.customer.phone || '') : '') + '</span></td><td>' + o.items.length + ' items</td><td>' + fmtPrice(o.total) + '</td><td style="text-transform:uppercase;font-size:0.8rem">' + o.payment + '</td><td><span class="order-status status-' + o.status + '">' + o.status + '</span></td><td><select class="sort-select" style="padding:6px" onchange="updateOrderStatus(\'' + o.id + '\', this.value)">' + ['pending','confirmed','processing','shipped','delivered','cancelled'].map(function(s) { return '<option value="' + s + '"' + (o.status === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></td></tr>';
-          }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--text-light);padding:32px">No orders yet</td></tr>'}
+            return '<tr><td><strong>#' + o.id + '</strong></td><td>' + (o.customer ? o.customer.name : 'Guest') + '<br><span style="font-size:0.75rem;color:var(--text-light)">' + (o.customer ? (o.customer.phone || '') : '') + '</span></td><td>' + o.items.length + ' items</td><td>' + fmtPrice(o.total) + '</td><td style="text-transform:uppercase;font-size:0.8rem">' + o.payment + '</td><td><span class="order-status status-' + o.status + '">' + o.status + '</span></td><td><select class="sort-select" style="padding:6px" onchange="updateOrderStatus(\'' + o.id + '\', this.value)">' + ['pending','confirmed','processing','shipped','delivered','cancelled'].map(function(s) { return '<option value="' + s + '"' + (o.status === s ? ' selected' : '') + '>' + s + '</option>'; }).join('') + '</select></td><td><div class="admin-table-actions"><button class="admin-btn admin-btn-primary admin-btn-icon" onclick="viewOrderDetail(\'' + o.id + '\')" title="View Details"><i class="fas fa-eye"></i></button></div></td></tr>';
+          }).join('') || '<tr><td colspan="8" style="text-align:center;color:var(--text-light);padding:32px">No orders yet</td></tr>'}
         </table>
       </div>
     </div>`;
+}
+
+// ---------- ADMIN: ORDER DETAIL MODAL ----------
+function viewOrderDetail(orderId) {
+  var o = State.orders.find(function(x) { return x.id === orderId; });
+  if (!o) { toast('Order not found', 'error'); return; }
+
+  var customer = o.customer || {};
+  var itemsHtml = (o.items || []).map(function(item) {
+    return '<tr><td><div style="display:flex;align-items:center;gap:8px">' +
+      (item.image ? '<img src="' + item.image + '" style="width:40px;height:40px;border-radius:6px;object-fit:cover">' : '') +
+      '<span>' + (item.name || 'N/A') + '</span></div></td>' +
+      '<td style="text-align:center">' + (item.qty || 1) + '</td>' +
+      '<td>' + fmtPrice(item.price || 0) + '</td>' +
+      '<td>' + fmtPrice((item.price || 0) * (item.qty || 1)) + '</td></tr>';
+  }).join('');
+
+  var statusColors = {
+    pending: '#F59E0B', confirmed: '#2563EB', processing: '#2563EB',
+    shipped: '#8B5CF6', delivered: '#22C55E', cancelled: '#EF4444'
+  };
+
+  var modal = document.createElement('div');
+  modal.id = 'orderDetailModal';
+  modal.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
+  modal.innerHTML = '<div style="background:var(--bg);border-radius:var(--radius);max-width:700px;width:100%;max-height:90vh;overflow-y:auto;padding:32px;box-shadow:var(--shadow-xl)">' +
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">' +
+    '<h2 style="font-size:1.5rem;font-weight:800">Order #' + o.id + '</h2>' +
+    '<button onclick="document.getElementById(\'orderDetailModal\').remove()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text-light)"><i class="fas fa-times"></i></button>' +
+    '</div>' +
+    '<div style="display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap">' +
+    '<span style="padding:6px 14px;border-radius:8px;font-size:0.8rem;font-weight:600;color:white;background:' + (statusColors[o.status] || '#64748B') + '">' + o.status + '</span>' +
+    '<span style="padding:6px 14px;border-radius:8px;font-size:0.8rem;font-weight:600;background:var(--bg-alt);color:var(--text)">' + new Date(o.date).toLocaleString() + '</span>' +
+    '<span style="padding:6px 14px;border-radius:8px;font-size:0.8rem;font-weight:600;background:var(--bg-alt);color:var(--text);text-transform:uppercase">' + (o.payment || 'N/A') + '</span>' +
+    '</div>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">' +
+    '<div style="background:var(--bg-alt);border-radius:var(--radius-sm);padding:20px">' +
+    '<h3 style="font-size:0.9rem;font-weight:700;margin-bottom:12px;color:var(--text-light)"><i class="fas fa-user"></i> Customer Info</h3>' +
+    '<div style="font-size:0.9rem;line-height:1.8">' +
+    '<div><strong>Name:</strong> ' + (customer.name || 'N/A') + '</div>' +
+    '<div><strong>Phone:</strong> ' + (customer.phone || 'N/A') + '</div>' +
+    '<div><strong>Email:</strong> ' + (customer.email || 'N/A') + '</div>' +
+    '</div></div>' +
+    '<div style="background:var(--bg-alt);border-radius:var(--radius-sm);padding:20px">' +
+    '<h3 style="font-size:0.9rem;font-weight:700;margin-bottom:12px;color:var(--text-light)"><i class="fas fa-map-marker-alt"></i> Shipping Address</h3>' +
+    '<div style="font-size:0.9rem;line-height:1.8">' +
+    '<div><strong>Address:</strong> ' + (customer.address || 'N/A') + '</div>' +
+    '<div><strong>City:</strong> ' + (customer.city || 'N/A') + '</div>' +
+    '<div><strong>Postal:</strong> ' + (customer.postal || 'N/A') + '</div>' +
+    '</div></div>' +
+    '</div>' +
+    '<div style="background:var(--bg-alt);border-radius:var(--radius-sm);padding:20px;margin-bottom:24px">' +
+    '<h3 style="font-size:0.9rem;font-weight:700;margin-bottom:12px;color:var(--text-light)"><i class="fas fa-box"></i> Ordered Items</h3>' +
+    '<table class="admin-table" style="margin:0">' +
+    '<tr><th>Product</th><th style="text-align:center">Qty</th><th>Price</th><th>Subtotal</th></tr>' +
+    (itemsHtml || '<tr><td colspan="4" style="text-align:center;padding:16px">No items</td></tr>') +
+    '</table></div>' +
+    (o.notes ? '<div style="background:var(--bg-alt);border-radius:var(--radius-sm);padding:20px;margin-bottom:24px"><h3 style="font-size:0.9rem;font-weight:700;margin-bottom:8px;color:var(--text-light)"><i class="fas fa-sticky-note"></i> Order Notes</h3><p style="font-size:0.9rem">' + o.notes + '</p></div>' : '') +
+    '<div style="background:var(--bg-alt);border-radius:var(--radius-sm);padding:20px;margin-bottom:24px">' +
+    '<h3 style="font-size:0.9rem;font-weight:700;margin-bottom:8px;color:var(--text-light)"><i class="fas fa-truck"></i> Delivery</h3>' +
+    '<div style="font-size:0.9rem"><strong>Method:</strong> ' + (o.delivery || 'standard') + '</div></div>' +
+    '<div style="border-top:2px solid var(--border);padding-top:20px">' +
+    '<div style="display:flex;justify-content:space-between;font-size:1.1rem;font-weight:800">' +
+    '<span>Total Amount</span><span style="color:var(--accent)">' + fmtPrice(o.total) + '</span>' +
+    '</div></div>' +
+    '<div style="display:flex;gap:12px;margin-top:24px;justify-content:flex-end">' +
+    '<button class="admin-btn admin-btn-danger" style="background:var(--danger);color:white" onclick="deleteOrder(\'' + o.id + '\')"><i class="fas fa-trash"></i> Delete Order</button>' +
+    '<button class="admin-btn admin-btn-primary" onclick="document.getElementById(\'orderDetailModal\').remove()"><i class="fas fa-times"></i> Close</button>' +
+    '<button class="admin-btn" style="background:var(--success);color:white" onclick="window.print()"><i class="fas fa-print"></i> Print</button>' +
+    '</div></div>';
+
+  document.body.appendChild(modal);
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.remove(); });
+}
+
+// ---------- ADMIN: DELETE ORDER ----------
+async function deleteOrder(orderId) {
+  if (!confirm('Are you sure you want to permanently delete order #' + orderId + '? This cannot be undone.')) return;
+  if (firebaseInitialized && db) {
+    try { await db.collection('orders').doc(orderId).delete(); } catch (e) { toast('Error: ' + e.message, 'error'); return; }
+  } else {
+    State.orders = State.orders.filter(function(o) { return o.id !== orderId; });
+    saveState();
+  }
+  var modal = document.getElementById('orderDetailModal');
+  if (modal) modal.remove();
+  toast('Order #' + orderId + ' deleted', 'success');
+  adminRenderSection();
 }
 
 async function updateOrderStatus(id, status) {
