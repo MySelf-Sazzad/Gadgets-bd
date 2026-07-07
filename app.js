@@ -605,34 +605,34 @@ function renderHome() {
       </div>
     </section>
 
-    <!-- BRANDS -->
-    <section class="section" style="padding-top:0">
-      <div class="container">
-        <div class="section-header"><h2 class="section-title">Top Brands</h2></div>
-        <div class="brands-grid">
-          ${State.brands.map(b => `
-            <div class="brand-card" onclick="navigateTo('products?brand=${b.id}')">
-              <div class="brand-logo">${b.logo}</div>
-              <div class="brand-name">${b.name}</div>
-            </div>`).join('')}
-        </div>
-      </div>
-    </section>
-
-    <!-- REVIEWS -->
+    <!-- REVIEWS / TESTIMONIALS SLIDER -->
     <section class="section" style="padding-top:0">
       <div class="container">
         <div class="section-header"><h2 class="section-title">What Customers Say</h2></div>
-        <div class="reviews-grid">
-          ${State.reviews.map(r => `
-            <div class="review-card">
-              <div class="review-stars">${stars(r.rating)}</div>
-              <p class="review-text">"${r.text}"</p>
-              <div class="review-author">
-                <div class="review-avatar">${r.name.charAt(0)}</div>
-                <div><div class="review-name">${r.name}</div><div class="review-product">${r.product}</div></div>
+        <div class="review-slider" id="reviewSlider">
+          <div class="review-slides" id="reviewSlides">
+            ${(State.reviews.length > 0 ? State.reviews : [
+              { name: 'Rahim Ahmed', rating: 5, text: 'Excellent service! Got my laptop delivered the next day in Dhaka. Genuine product with warranty. Highly recommended!', product: 'ASUS ROG Laptop' },
+              { name: 'Karim Hassan', rating: 5, text: 'Best electronics store in Bangladesh. Prices are competitive and customer support is very helpful. Will buy again!', product: 'Logitech G Pro Mouse' },
+              { name: 'Nadia Islam', rating: 4, text: 'Great shopping experience. The product was exactly as described. Delivery was fast and packaging was secure.', product: 'Samsung Monitor' },
+              { name: 'Tanvir Rahman', rating: 5, text: 'Been buying from here for 2 years. Never disappointed. Authentic products, fair prices, and excellent after-sales support.', product: 'Intel Core i7 Processor' }
+            ]).map((r, i) => `
+            <div class="review-slide${i === 0 ? ' active' : ''}">
+              <div class="review-card">
+                <div class="review-stars">${stars(r.rating)}</div>
+                <p class="review-text">"${r.text}"</p>
+                <div class="review-author">
+                  <div class="review-avatar">${r.name.charAt(0)}</div>
+                  <div><div class="review-name">${r.name}</div><div class="review-product">${r.product}</div></div>
+                </div>
               </div>
             </div>`).join('')}
+          </div>
+          <button class="review-nav review-prev" onclick="changeReview(-1)"><i class="fas fa-chevron-left"></i></button>
+          <button class="review-nav review-next" onclick="changeReview(1)"><i class="fas fa-chevron-right"></i></button>
+          <div class="review-dots" id="reviewDots">
+            ${(State.reviews.length > 0 ? State.reviews : [1,2,3,4]).map((_, i) => `<span class="review-dot${i === 0 ? ' active' : ''}" onclick="goToReview(${i})"></span>`).join('')}
+          </div>
         </div>
       </div>
     </section>
@@ -2688,13 +2688,15 @@ function viewOrderDetail(orderId) {
 
   var customer = o.customer || {};
   var itemsHtml = (o.items || []).map(function(item) {
-    return '<tr><td><div style="display:flex;align-items:center;gap:8px">' +
-      (item.image ? '<img src="' + item.image + '" style="width:40px;height:40px;border-radius:6px;object-fit:cover">' : '') +
-      '<span>' + (item.name || 'N/A') + '</span></div></td>' +
+    return '<tr><td>' + (item.name || 'N/A') + '</td>' +
       '<td style="text-align:center">' + (item.qty || 1) + '</td>' +
       '<td>' + fmtPrice(item.price || 0) + '</td>' +
       '<td>' + fmtPrice((item.price || 0) * (item.qty || 1)) + '</td></tr>';
   }).join('');
+  // Calculate subtotal and delivery charge
+  var orderSubtotal = (o.items || []).reduce(function(sum, item) { return sum + (item.price || 0) * (item.qty || 1); }, 0);
+  var deliveryCharge = o.total - orderSubtotal;
+  if (deliveryCharge < 0) deliveryCharge = 0;
 
   var statusColors = {
     pending: '#F59E0B', confirmed: '#2563EB', processing: '#2563EB',
@@ -2742,12 +2744,17 @@ function viewOrderDetail(orderId) {
     '<div style="font-size:0.9rem"><strong>Method:</strong> ' + (o.delivery || 'standard') + '</div></div>' +
     (o.transactionId ? '<div style="background:var(--bg-alt);border-radius:var(--radius-sm);padding:20px;margin-bottom:24px"><h3 style="font-size:0.9rem;font-weight:700;margin-bottom:8px;color:var(--text-light)"><i class="fas fa-receipt"></i> Transaction ID</h3><p style="font-size:1rem;font-weight:700;color:var(--accent)">' + o.transactionId + '</p></div>' : '') +
     '<div style="border-top:2px solid var(--border);padding-top:20px">' +
+    '<div style="display:flex;justify-content:space-between;font-size:0.95rem;margin-bottom:8px">' +
+    '<span>Subtotal</span><span>' + fmtPrice(orderSubtotal) + '</span>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:0.95rem;margin-bottom:12px">' +
+    '<span>Delivery Charge</span><span>' + (deliveryCharge === 0 ? 'FREE' : fmtPrice(deliveryCharge)) + '</span>' +
+    '</div>' +
     '<div style="display:flex;justify-content:space-between;font-size:1.1rem;font-weight:800">' +
     '<span>Total Amount</span><span style="color:var(--accent)">' + fmtPrice(o.total) + '</span>' +
     '</div></div>' +
     '<div style="display:flex;gap:12px;margin-top:24px;justify-content:flex-end">' +
     '<button class="admin-btn admin-btn-danger" style="background:var(--danger);color:white" onclick="deleteOrder(\'' + o.id + '\')"><i class="fas fa-trash"></i> Delete Order</button>' +
-    '<button class="admin-btn admin-btn-primary" onclick="document.getElementById(\'orderDetailModal\').remove()"><i class="fas fa-times"></i> Close</button>' +
     '<button class="admin-btn" style="background:var(--success);color:white" onclick="window.print()"><i class="fas fa-print"></i> Print</button>' +
     '</div></div>';
 
@@ -3059,6 +3066,25 @@ function adminSettingsView(c) {
 
 // APP INITIALIZATION
 // ============================================================
+// ---------- REVIEW SLIDER ----------
+var _currentReview = 0;
+function changeReview(dir) {
+  var slides = document.querySelectorAll('.review-slide');
+  if (!slides.length) return;
+  _currentReview = (_currentReview + dir + slides.length) % slides.length;
+  updateReviewSlider();
+}
+function goToReview(idx) {
+  _currentReview = idx;
+  updateReviewSlider();
+}
+function updateReviewSlider() {
+  var slides = document.querySelectorAll('.review-slide');
+  var dots = document.querySelectorAll('.review-dot');
+  slides.forEach(function(s, i) { s.classList.toggle('active', i === _currentReview); });
+  dots.forEach(function(d, i) { d.classList.toggle('active', i === _currentReview); });
+}
+
 async function initApp() {
   // Populate nav dropdowns from State (will be updated by onSnapshot listeners)
   updateNavDropdowns();
