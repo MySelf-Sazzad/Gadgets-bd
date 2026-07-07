@@ -33,6 +33,13 @@ const State = {
 const ADMIN_EMAIL = 'admin@gadgetsbd.com';
 const ADMIN_PASSWORD = 'admin123';
 
+// Payment merchant numbers (change these to your real numbers)
+const PAYMENT_NUMBERS = {
+  bkash: '01XXXXXXXXX',
+  nagad: '01XXXXXXXXX',
+  rocket: '01XXXXXXXXX'
+};
+
 // ---------- UTILITIES ----------
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -1067,7 +1074,7 @@ function renderCart() {
   }
 
   const subtotal = cartTotal();
-  const shipping = subtotal >= 10000 ? 0 : 120;
+  const shipping = subtotal >= 10000 ? 0 : 80;
   let discount = 0;
   if (State.appliedCoupon) {
     const c = State.appliedCoupon;
@@ -1153,7 +1160,7 @@ function renderCheckout() {
   if (items.length === 0) { navigateTo('cart'); return; }
 
   const subtotal = cartTotal();
-  const shipping = subtotal >= 10000 ? 0 : 120;
+  const shipping = subtotal >= 10000 ? 0 : 80;
   let discount = 0;
   if (State.appliedCoupon) {
     const c = State.appliedCoupon;
@@ -1198,7 +1205,7 @@ function renderCheckout() {
                 <label class="payment-option selected" onclick="selectDelivery(this, 'standard')">
                   <input type="radio" name="delivery" checked>
                   <span class="pay-icon"><i class="fas fa-box"></i></span>
-                  <div><label>Standard Delivery</label><div style="font-size:0.8rem;color:var(--text-light)">2-3 days · ${shipping === 0 ? 'FREE' : fmtPrice(120)}</div></div>
+                  <div><label>Standard Delivery</label><div style="font-size:0.8rem;color:var(--text-light)">2-3 days · ${shipping === 0 ? 'FREE' : fmtPrice(80)}</div></div>
                 </label>
                 <label class="payment-option" onclick="selectDelivery(this, 'express')">
                   <input type="radio" name="delivery">
@@ -1215,6 +1222,13 @@ function renderCheckout() {
                 <label class="payment-option" onclick="selectPayment(this, 'nagad')"><input type="radio" name="payment"><span class="pay-icon" style="color:#F60">📲</span><label>Nagad</label></label>
                 <label class="payment-option" onclick="selectPayment(this, 'rocket')"><input type="radio" name="payment"><span class="pay-icon" style="color:#8C3FA0">🚀</span><label>Rocket</label></label>
                 <label class="payment-option" onclick="selectPayment(this, 'card')"><input type="radio" name="payment"><span class="pay-icon">💳</span><label>Visa / MasterCard (SSLCommerz)</label></label>
+              </div>
+              <div id="paymentInfoBox" style="display:none;margin-top:16px;padding:16px;border-radius:var(--radius-sm);background:var(--bg-alt);border:1px solid var(--border)">
+                <div id="paymentInstructions"></div>
+                <div class="form-field" style="margin-top:12px">
+                  <label>Transaction ID *</label>
+                  <input type="text" id="coTransactionId" placeholder="Enter your transaction ID" style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text)">
+                </div>
               </div>
             </div>
             <div class="form-section">
@@ -1258,6 +1272,29 @@ function selectPayment(el, mode) {
   el.classList.add('selected');
   el.querySelector('input').checked = true;
   window._checkoutData.payment = mode;
+  // Show/hide payment info box for mobile payments
+  var infoBox = document.getElementById('paymentInfoBox');
+  if (infoBox) {
+    if (mode === 'bkash' || mode === 'nagad' || mode === 'rocket') {
+      infoBox.style.display = 'block';
+      var num = PAYMENT_NUMBERS[mode] || '01XXXXXXXXX';
+      var totalAmount = window._checkoutData.total || 0;
+      var modeName = mode === 'bkash' ? 'bKash' : mode === 'nagad' ? 'Nagad' : 'Rocket';
+      var modeColor = mode === 'bkash' ? '#E2136E' : mode === 'nagad' ? '#F60' : '#8C3FA0';
+      document.getElementById('paymentInstructions').innerHTML =
+        '<div style="text-align:center;padding:12px">' +
+        '<h4 style="color:' + modeColor + ';font-size:1.1rem;font-weight:800;margin-bottom:8px">' + modeName + ' Payment</h4>' +
+        '<p style="font-size:0.85rem;color:var(--text-light);margin-bottom:12px">Send Money to our ' + modeName + ' number:</p>' +
+        '<div style="font-size:1.4rem;font-weight:800;color:' + modeColor + ';margin-bottom:8px">' + num + '</div>' +
+        '<p style="font-size:0.85rem;color:var(--text-light)">Amount to send: <strong style="color:var(--text);font-size:1rem">' + fmtPrice(totalAmount) + '</strong></p>' +
+        '<p style="font-size:0.75rem;color:var(--text-light);margin-top:8px">After sending money, enter the Transaction ID below.</p>' +
+        '</div>';
+    } else {
+      infoBox.style.display = 'none';
+      var txField = document.getElementById('coTransactionId');
+      if (txField) txField.value = '';
+    }
+  }
 }
 
 async function placeOrder(total) {
@@ -1267,6 +1304,12 @@ async function placeOrder(total) {
   const address = $('#coAddress').value.trim();
   const city = $('#coCity').value;
   if (!name || !phone || !address) { toast('Please fill all required fields', 'error'); return; }
+  // Validate transaction ID for mobile payments
+  var payMode = window._checkoutData.payment;
+  if (payMode === 'bkash' || payMode === 'nagad' || payMode === 'rocket') {
+    var txId = $('#coTransactionId') ? $('#coTransactionId').value.trim() : '';
+    if (!txId) { toast('Please enter your Transaction ID', 'error'); return; }
+  }
 
   const order = {
     id: 'GBD' + Date.now().toString().slice(-8),
@@ -1278,6 +1321,7 @@ async function placeOrder(total) {
     payment: window._checkoutData.payment,
     delivery: window._checkoutData.delivery,
     notes: $('#coNotes').value.trim(),
+    transactionId: (window._checkoutData.payment === 'bkash' || window._checkoutData.payment === 'nagad' || window._checkoutData.payment === 'rocket') ? ($('#coTransactionId') ? $('#coTransactionId').value.trim() : '') : '',
     total,
     status: 'pending',
     date: new Date().toISOString(),
@@ -2696,6 +2740,7 @@ function viewOrderDetail(orderId) {
     '<div style="background:var(--bg-alt);border-radius:var(--radius-sm);padding:20px;margin-bottom:24px">' +
     '<h3 style="font-size:0.9rem;font-weight:700;margin-bottom:8px;color:var(--text-light)"><i class="fas fa-truck"></i> Delivery</h3>' +
     '<div style="font-size:0.9rem"><strong>Method:</strong> ' + (o.delivery || 'standard') + '</div></div>' +
+    (o.transactionId ? '<div style="background:var(--bg-alt);border-radius:var(--radius-sm);padding:20px;margin-bottom:24px"><h3 style="font-size:0.9rem;font-weight:700;margin-bottom:8px;color:var(--text-light)"><i class="fas fa-receipt"></i> Transaction ID</h3><p style="font-size:1rem;font-weight:700;color:var(--accent)">' + o.transactionId + '</p></div>' : '') +
     '<div style="border-top:2px solid var(--border);padding-top:20px">' +
     '<div style="display:flex;justify-content:space-between;font-size:1.1rem;font-weight:800">' +
     '<span>Total Amount</span><span style="color:var(--accent)">' + fmtPrice(o.total) + '</span>' +
