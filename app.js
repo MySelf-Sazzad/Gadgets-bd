@@ -309,8 +309,8 @@ function router(silent) {
   $$('.nav-item').forEach(n => n.classList.remove('active'));
 
   switch (path) {
-    case 'home': renderHome(); break;
-    case 'products': renderProducts(params); break;
+    case 'home': renderHome(); startReviewAutoSlide(); break;
+    case 'products': stopReviewAutoSlide(); renderProducts(params); break;
     case 'product': renderProductDetail(params.get('id')); break;
     case 'deals': renderDeals(); break;
     case 'cart': renderCart(); break;
@@ -2690,8 +2690,8 @@ function viewOrderDetail(orderId) {
   var itemsHtml = (o.items || []).map(function(item) {
     return '<tr><td>' + (item.name || 'N/A') + '</td>' +
       '<td style="text-align:center">' + (item.qty || 1) + '</td>' +
-      '<td>' + fmtPrice(item.price || 0) + '</td>' +
-      '<td>' + fmtPrice((item.price || 0) * (item.qty || 1)) + '</td></tr>';
+      '<td style="text-align:right">' + fmtPrice(item.price || 0) + '</td>' +
+      '<td style="text-align:right">' + fmtPrice((item.price || 0) * (item.qty || 1)) + '</td></tr>';
   }).join('');
   // Calculate subtotal and delivery charge
   var orderSubtotal = (o.items || []).reduce(function(sum, item) { return sum + (item.price || 0) * (item.qty || 1); }, 0);
@@ -2735,7 +2735,7 @@ function viewOrderDetail(orderId) {
     '<div style="background:var(--bg-alt);border-radius:var(--radius-sm);padding:20px;margin-bottom:24px">' +
     '<h3 style="font-size:0.9rem;font-weight:700;margin-bottom:12px;color:var(--text-light)"><i class="fas fa-box"></i> Ordered Items</h3>' +
     '<table class="admin-table" style="margin:0">' +
-    '<tr><th>Product</th><th style="text-align:center">Qty</th><th>Price</th><th>Subtotal</th></tr>' +
+    '<tr><th>Product</th><th style="text-align:center">Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Subtotal</th></tr>' +
     (itemsHtml || '<tr><td colspan="4" style="text-align:center;padding:16px">No items</td></tr>') +
     '</table></div>' +
     (o.notes ? '<div style="background:var(--bg-alt);border-radius:var(--radius-sm);padding:20px;margin-bottom:24px"><h3 style="font-size:0.9rem;font-weight:700;margin-bottom:8px;color:var(--text-light)"><i class="fas fa-sticky-note"></i> Order Notes</h3><p style="font-size:0.9rem">' + o.notes + '</p></div>' : '') +
@@ -3083,6 +3083,19 @@ function updateReviewSlider() {
   var dots = document.querySelectorAll('.review-dot');
   slides.forEach(function(s, i) { s.classList.toggle('active', i === _currentReview); });
   dots.forEach(function(d, i) { d.classList.toggle('active', i === _currentReview); });
+}
+
+// Auto-slide testimonials every 4 seconds
+var _reviewAutoTimer = null;
+function startReviewAutoSlide() {
+  stopReviewAutoSlide();
+  _reviewAutoTimer = setInterval(function() {
+    var slides = document.querySelectorAll('.review-slide');
+    if (slides.length > 1) changeReview(1);
+  }, 4000);
+}
+function stopReviewAutoSlide() {
+  if (_reviewAutoTimer) { clearInterval(_reviewAutoTimer); _reviewAutoTimer = null; }
 }
 
 async function initApp() {
