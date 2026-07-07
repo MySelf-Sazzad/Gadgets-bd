@@ -34,8 +34,8 @@ const CATEGORIES = [
 // These will be seeded to Firebase on first run.
 // After that, you can add/edit/delete from Admin Panel > Brands.
 const BRANDS = [
-  { id: 'asus',          name: 'ASUS',          logo: '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/2e/ASUS_Logo.svg/200px-ASUS_Logo.svg.png" alt="ASUS" style="max-height:40px;max-width:80px;object-fit:contain">', website: 'asus.com',         visible: true },
-  { id: 'msi',           name: 'MSI',           logo: '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c1/MSI_Logo.svg/200px-MSI_Logo.svg.png" alt="MSI" style="max-height:40px;max-width:80px;object-fit:contain">', website: 'msi.com',          visible: true },
+  { id: 'asus',          name: 'ASUS',          logo: '<img src="https://www.citypng.com/photo/25893/asus-black-logo-free-png" alt="ASUS" style="max-height:40px;max-width:80px;object-fit:contain">', website: 'asus.com',         visible: true },
+  { id: 'msi',           name: 'MSI',           logo: '<img src="https://www.pngwing.com/en/free-png-avhds" alt="MSI" style="max-height:40px;max-width:80px;object-fit:contain">', website: 'msi.com',          visible: true },
   { id: 'gigabyte',      name: 'Gigabyte',      logo: '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Gigabyte_Technology_logo.svg/200px-Gigabyte_Technology_logo.svg.png" alt="Gigabyte" style="max-height:40px;max-width:80px;object-fit:contain">', website: 'gigabyte.com',     visible: true },
   { id: 'apple',         name: 'Apple',         logo: '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/Apple_logo_black.svg/200px-Apple_logo_black.svg.png" alt="Apple" style="max-height:40px;max-width:80px;object-fit:contain">', website: 'apple.com',        visible: true },
   { id: 'dell',          name: 'Dell',          logo: '<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/18/Dell_logo_2016.svg/200px-Dell_logo_2016.svg.png" alt="Dell" style="max-height:40px;max-width:80px;object-fit:contain">', website: 'dell.com',         visible: true },
