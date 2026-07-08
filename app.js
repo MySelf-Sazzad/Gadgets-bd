@@ -426,6 +426,7 @@ function productCard(p) {
           ${pct > 0 ? `<span class="badge badge-discount">-${pct}%</span>` : ''}
           ${p.newArrival ? `<span class="badge badge-new">NEW</span>` : ''}
           ${p.flashSale ? `<span class="badge badge-flash">FLASH</span>` : ''}
+          ${p.trending ? `<span class="badge badge-trending">TRENDING</span>` : ''}
         </div>
       </div>
       <div class="product-actions">
@@ -480,12 +481,13 @@ console.log('Gadgets BD app.js part 1 loaded');
 
 // ---------- HOME PAGE ----------
 function renderHome() {
-  const featured = State.products.filter(p => p.featured);
-  const trending = State.products.filter(p => p.trending);
   const flashSale = State.products.filter(p => p.flashSale);
   const newArrivals = State.products.filter(p => p.newArrival);
-  const gaming = State.products.filter(p => p.category === 'gaming');
-  const bestSelling = [...State.products].sort((a, b) => b.reviewCount - a.reviewCount).slice(0, 4);
+  // Merge featured + trending products (deduplicated) for Shop Now section
+  const _seen = {};
+  const shopNowProducts = [...State.products.filter(p => p.featured), ...State.products.filter(p => p.trending)].filter(p => {
+    if (_seen[p.id]) return false; _seen[p.id] = true; return true;
+  });
 
   // Use banners from State (Firebase) or fall back to data.js defaults
   var banners = State.banners.length > 0 ? State.banners : (window.GBD_DATA.BANNERS || []);
@@ -508,19 +510,6 @@ function renderHome() {
         ${banners.map((_, i) => `<div class="hero-dot ${i === 0 ? 'active' : ''}" onclick="goToSlide(${i})"></div>`).join('')}
       </div>
     </div>
-
-    <!-- SERVICE HIGHLIGHTS -->
-    <section class="section" style="padding-top:40px; padding-bottom:0">
-      <div class="container">
-        <div class="service-highlights">
-          ${State.services.map(s => `
-            <div class="service-card">
-              <div class="service-icon"><i class="${s.icon}"></i></div>
-              <div><h4>${s.title}</h4><p>${s.desc}</p></div>
-            </div>`).join('')}
-        </div>
-      </div>
-    </section>
 
     <!-- CATEGORIES -->
     <section class="section">
@@ -561,36 +550,14 @@ function renderHome() {
       </div>
     </section>
 
-    <!-- FEATURED PRODUCTS -->
+    <!-- SHOP NOW (merged Featured + Trending) -->
     <section class="section" style="padding-top:0">
       <div class="container">
         <div class="section-header">
-          <h2 class="section-title">Featured Products</h2>
+          <h2 class="section-title">Shop Now</h2>
           <a class="section-link" onclick="navigateTo('products')">View All <i class="fas fa-arrow-right"></i></a>
         </div>
-        <div class="product-grid">${featured.slice(0, 8).map(productCard).join('')}</div>
-      </div>
-    </section>
-
-    <!-- TRENDING -->
-    <section class="section" style="padding-top:0">
-      <div class="container">
-        <div class="section-header">
-          <h2 class="section-title">Trending Now</h2>
-          <a class="section-link" onclick="navigateTo('products')">View All <i class="fas fa-arrow-right"></i></a>
-        </div>
-        <div class="product-grid">${trending.slice(0, 4).map(productCard).join('')}</div>
-      </div>
-    </section>
-
-    <!-- GAMING COLLECTION -->
-    <section class="section" style="padding-top:0">
-      <div class="container">
-        <div class="section-header">
-          <h2 class="section-title">Gaming Collection</h2>
-          <a class="section-link" onclick="navigateTo('products?category=gaming')">View All <i class="fas fa-arrow-right"></i></a>
-        </div>
-        <div class="product-grid">${gaming.length ? gaming.slice(0, 4).map(productCard).join('') : '<p style="color:var(--text-light)">More gaming products coming soon.</p>'}</div>
+        <div class="product-grid">${shopNowProducts.slice(0, 8).map(productCard).join('')}</div>
       </div>
     </section>
 
@@ -628,8 +595,6 @@ function renderHome() {
               </div>
             </div>`).join('')}
           </div>
-          <button class="review-nav review-prev" onclick="changeReview(-1)"><i class="fas fa-chevron-left"></i></button>
-          <button class="review-nav review-next" onclick="changeReview(1)"><i class="fas fa-chevron-right"></i></button>
           <div class="review-dots" id="reviewDots">
             ${(State.reviews.length > 0 ? State.reviews : [1,2,3,4]).map((_, i) => `<span class="review-dot${i === 0 ? ' active' : ''}" onclick="goToReview(${i})"></span>`).join('')}
           </div>
@@ -722,7 +687,11 @@ function renderProducts(params) {
           <a onclick="navigateTo('home')">Home</a> <i class="fas fa-chevron-right"></i> <span>Products</span>
         </div>
         <div class="products-layout">
-          <aside class="filters-sidebar" id="filtersSidebar">
+          <aside class="filters-sidebar" id="filtersSidebar" style="display:none">
+            <div class="filter-header">
+              <h3>Filters</h3>
+              <button class="filter-close-btn" onclick="toggleFilters()"><i class="fas fa-times"></i></button>
+            </div>
             <div class="filter-group">
               <h4>Category</h4>
               ${State.categories.map(c => `
@@ -765,10 +734,12 @@ function renderProducts(params) {
             </div>
             <button class="admin-btn admin-btn-primary" style="width:100%" onclick="clearFilters()">Clear Filters</button>
           </aside>
+          <div class="filter-overlay" id="filterOverlay" onclick="toggleFilters()"></div>
           <main class="products-main">
             <div class="products-toolbar">
               <span class="products-count" id="productsCount">Loading...</span>
               <div style="display:flex; gap:12px; align-items:center">
+                <button class="filter-toggle-btn" onclick="toggleFilters()"><i class="fas fa-sliders-h"></i> Filters</button>
                 <select class="sort-select" id="sortSelect" onchange="applyFilters()">
                   <option value="default">Sort: Default</option>
                   <option value="price-low">Price: Low to High</option>
@@ -811,6 +782,18 @@ function clearFilters() {
   updatePriceLabel();
   window._searchQuery = '';
   applyFilters();
+}
+
+function toggleFilters() {
+  var sidebar = $('#filtersSidebar');
+  var overlay = $('#filterOverlay');
+  if (sidebar.style.display === 'none' || sidebar.style.display === '') {
+    sidebar.style.display = 'block';
+    if (overlay) overlay.classList.add('active');
+  } else {
+    sidebar.style.display = 'none';
+    if (overlay) overlay.classList.remove('active');
+  }
 }
 
 function applyFilters() {
@@ -1218,9 +1201,9 @@ function renderCheckout() {
               <h3><i class="fas fa-credit-card"></i> Payment Method</h3>
               <div class="payment-methods">
                 <label class="payment-option selected" onclick="selectPayment(this, 'cod')"><input type="radio" name="payment" checked><span class="pay-icon">💵</span><label>Cash on Delivery</label></label>
-                <label class="payment-option" onclick="selectPayment(this, 'bkash')"><input type="radio" name="payment"><span class="pay-icon" style="color:#E2136E">📱</span><label>bKash</label></label>
-                <label class="payment-option" onclick="selectPayment(this, 'nagad')"><input type="radio" name="payment"><span class="pay-icon" style="color:#F60">📲</span><label>Nagad</label></label>
-                <label class="payment-option" onclick="selectPayment(this, 'rocket')"><input type="radio" name="payment"><span class="pay-icon" style="color:#8C3FA0">🚀</span><label>Rocket</label></label>
+                <label class="payment-option" onclick="selectPayment(this, 'bkash')"><input type="radio" name="payment"><span class="pay-icon"><img src="bkash-logo.png" alt="bKash" style="width:32px;height:auto;object-fit:contain"></span><label>bKash</label></label>
+                <label class="payment-option" onclick="selectPayment(this, 'nagad')"><input type="radio" name="payment"><span class="pay-icon"><img src="nagad-logo.png" alt="Nagad" style="width:32px;height:auto;object-fit:contain"></span><label>Nagad</label></label>
+                <label class="payment-option" onclick="selectPayment(this, 'rocket')"><input type="radio" name="payment"><span class="pay-icon"><img src="rocket-logo.png" alt="Rocket" style="width:32px;height:auto;object-fit:contain"></span><label>Rocket</label></label>
                 <label class="payment-option" onclick="selectPayment(this, 'card')"><input type="radio" name="payment"><span class="pay-icon">💳</span><label>Visa / MasterCard (SSLCommerz)</label></label>
               </div>
               <div id="paymentInfoBox" style="display:none;margin-top:16px;padding:16px;border-radius:var(--radius-sm);background:var(--bg-alt);border:1px solid var(--border)">
