@@ -27,7 +27,6 @@ const CATEGORIES = [
   { id: 'networking',  name: 'Networking',     icon: 'fas fa-network-wired',  banner: 'networking' },
   { id: 'cables',      name: 'Cables & Adapters',icon: 'fas fa-usb',          banner: 'cables' },
   { id: 'printer',     name: 'Printer',        icon: 'fas fa-print',          banner: 'printer' },
-  { id: 'ups',         name: 'UPS',            icon: 'fas fa-battery-full',   banner: 'ups' },
 ];
 
 // ===== DEFAULT BRANDS (Electronics brands) =====
